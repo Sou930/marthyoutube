@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
-const cheerio = require('cheerio'); // HTMLパース用
+const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -28,29 +27,32 @@ app.post('/proxy', async (req, res) => {
   }
 
   try {
-    // 外部サイトにリクエストを送信
-    console.log("Fetching URL:", formattedUrl); // リクエストを送信するURLをログ出力
-    const response = await axios.get(formattedUrl);
+    // Puppeteerを使ってブラウザを起動
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(formattedUrl, { waitUntil: 'domcontentloaded' }); // DOMがロードされるまで待機
 
-    // 外部サイトのHTMLをパース
-    const $ = cheerio.load(response.data);
+    // ページのHTMLを取得
+    const html = await page.content();
 
-    // HTMLから画像URLを抽出
-    const imageUrls = [];
-    $('img').each((i, el) => {
-      const imgUrl = $(el).attr('src');
-      if (imgUrl) {
-        // 絶対URLに変換
-        const absoluteUrl = new URL(imgUrl, formattedUrl).href;
-        imageUrls.push(absoluteUrl);
-      }
+    // 必要に応じて、画像URLなどを抽出することも可能
+    const imageUrls = await page.evaluate(() => {
+      const urls = [];
+      const images = document.querySelectorAll('img');
+      images.forEach((img) => {
+        if (img.src) {
+          urls.push(img.src);
+        }
+      });
+      return urls;
     });
 
-    // コンテンツと画像URLをレスポンスに含めて返す
-    console.log("Received response from URL"); // 成功したことをログ出力
-    res.json({ content: response.data, imageUrls: imageUrls });
+    await browser.close(); // ブラウザを閉じる
+
+    // 結果を返す
+    res.json({ content: html, imageUrls: imageUrls });
+
   } catch (error) {
-    // エラーの詳細をログ出力
     console.error("Error during proxying the request:", error);
     res.status(500).json({ error: `リクエスト中にエラーが発生しました。詳細: ${error.message}` });
   }
