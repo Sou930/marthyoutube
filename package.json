@@ -1,0 +1,13 @@
+{
+  "name": "my-web-proxy",
+  "version": "1.0.0",
+  "description": "Web Proxy using Render and Glitch",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "axios": "^0.21.1"
+  }
+}
