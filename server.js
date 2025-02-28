@@ -28,7 +28,11 @@ app.post('/proxy', async (req, res) => {
 
   try {
     // Puppeteerを使ってブラウザを起動
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      headless: true,  // もしくは "new"
+      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser', // RenderやGlitchのChromiumパスを指定
+    });
+
     const page = await browser.newPage();
     await page.goto(formattedUrl, { waitUntil: 'domcontentloaded' }); // DOMがロードされるまで待機
 
