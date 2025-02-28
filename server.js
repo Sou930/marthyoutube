@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;  // RenderやGlitchなどで指定されたポートを使用
 
 // CORS設定：Glitchからのリクエストを許可
 app.use(cors({
@@ -14,6 +14,7 @@ app.use(express.json());
 
 // プロキシエンドポイント
 app.post('/proxy', async (req, res) => {
+  console.log('Received proxy request');  // ログ出力
   const { url } = req.body;
 
   if (!url) {
@@ -27,34 +28,30 @@ app.post('/proxy', async (req, res) => {
   }
 
   try {
-    // Puppeteerを使ってブラウザを起動
+    console.log(`Navigating to: ${formattedUrl}`);  // ログ出力
     const browser = await puppeteer.launch({
-      headless: true,  // もしくは "new"
-      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser', // RenderやGlitchのChromiumパスを指定
+      headless: true,  // headlessモードでブラウザを起動
+      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser',  // Chromiumのパスを指定
     });
 
     const page = await browser.newPage();
     await page.goto(formattedUrl, { waitUntil: 'domcontentloaded' }); // DOMがロードされるまで待機
 
-    // ページのHTMLを取得
-    const html = await page.content();
-
-    // 必要に応じて、画像URLなどを抽出することも可能
+    const html = await page.content();  // ページのHTMLを取得
     const imageUrls = await page.evaluate(() => {
       const urls = [];
       const images = document.querySelectorAll('img');
       images.forEach((img) => {
         if (img.src) {
-          urls.push(img.src);
+          urls.push(img.src);  // 画像のURLを収集
         }
       });
       return urls;
     });
 
-    await browser.close(); // ブラウザを閉じる
+    await browser.close();  // ブラウザを閉じる
 
-    // 結果を返す
-    res.json({ content: html, imageUrls: imageUrls });
+    res.json({ content: html, imageUrls: imageUrls });  // 結果を返す
 
   } catch (error) {
     console.error("Error during proxying the request:", error);
