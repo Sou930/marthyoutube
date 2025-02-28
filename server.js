@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios'); // 外部リクエスト用
+const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -20,15 +20,24 @@ app.post('/proxy', async (req, res) => {
     return res.status(400).json({ error: "URLが必要です。" });
   }
 
+  // URLにプロトコルが含まれていない場合、http:// を付ける
+  let formattedUrl = url;
+  if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+    formattedUrl = 'https://' + formattedUrl; // httpsをデフォルトとして設定
+  }
+
   try {
     // 外部サイトにリクエストを送信
-    const response = await axios.get(url);
+    console.log("Fetching URL:", formattedUrl); // リクエストを送信するURLをログ出力
+    const response = await axios.get(formattedUrl);
 
     // 外部サイトのレスポンスをそのまま返す
+    console.log("Received response from URL"); // 成功したことをログ出力
     res.json({ content: response.data });
   } catch (error) {
+    // エラーの詳細をログ出力
     console.error("Error during proxying the request:", error);
-    res.status(500).json({ error: "リクエスト中にエラーが発生しました。" });
+    res.status(500).json({ error: `リクエスト中にエラーが発生しました。詳細: ${error.message}` });
   }
 });
 
