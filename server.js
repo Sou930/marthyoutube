@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const cheerio = require('cheerio'); // HTMLパース用
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -31,9 +32,23 @@ app.post('/proxy', async (req, res) => {
     console.log("Fetching URL:", formattedUrl); // リクエストを送信するURLをログ出力
     const response = await axios.get(formattedUrl);
 
-    // 外部サイトのレスポンスをそのまま返す
+    // 外部サイトのHTMLをパース
+    const $ = cheerio.load(response.data);
+
+    // HTMLから画像URLを抽出
+    const imageUrls = [];
+    $('img').each((i, el) => {
+      const imgUrl = $(el).attr('src');
+      if (imgUrl) {
+        // 絶対URLに変換
+        const absoluteUrl = new URL(imgUrl, formattedUrl).href;
+        imageUrls.push(absoluteUrl);
+      }
+    });
+
+    // コンテンツと画像URLをレスポンスに含めて返す
     console.log("Received response from URL"); // 成功したことをログ出力
-    res.json({ content: response.data });
+    res.json({ content: response.data, imageUrls: imageUrls });
   } catch (error) {
     // エラーの詳細をログ出力
     console.error("Error during proxying the request:", error);
