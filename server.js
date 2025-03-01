@@ -1,63 +1,38 @@
 const express = require('express');
-const cors = require('cors');
-const puppeteer = require('puppeteer-core');
+const axios = require('axios');
+const cheerio = require('cheerio'); // HTML パーサー
 const app = express();
-const PORT = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
-// CORS設定：リクエスト元を許可
-app.use(cors({
-  origin: 'https://stream-cooing-metal.glitch.me',
-}));
+app.get('/proxy', async (req, res) => {
+  const targetUrl = req.query.url;
 
-app.use(express.json());
-
-// プロキシエンドポイント
-app.post('/proxy', async (req, res) => {
-  const { url } = req.body;
-
-  if (!url) {
-    return res.status(400).json({ error: "URLが必要です。" });
-  }
-
-  let formattedUrl = url;
-  if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-    formattedUrl = 'https://' + formattedUrl;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'URL is required' });
   }
 
   try {
-    const executablePath = process.env.CHROME_BIN || '/usr/bin/chromium-browser';
+    // 受け取ったURLに対してHTMLコンテンツを取得
+    const response = await axios.get(targetUrl);
+    const htmlContent = response.data;
 
-    // Puppeteerの起動
-    const browser = await puppeteer.launch({
-      executablePath: executablePath,
-      headless: 'new',  // 新しいヘッドレスモードを使用
+    // cheerioを使ってHTMLを解析
+    const $ = cheerio.load(htmlContent);
+
+    // 最初の画像を取得（必要に応じて画像取得を拡張）
+    const imageUrl = $('img').first().attr('src');
+
+    // 結果としてHTMLコンテンツと画像URLを返す
+    res.json({
+      html: htmlContent,  // HTML コンテンツそのまま返す
+      image: imageUrl ? imageUrl : null  // 最初の画像URLを返す
     });
-
-    const page = await browser.newPage();
-    await page.goto(formattedUrl, { waitUntil: 'domcontentloaded' });
-
-    const html = await page.content();
-
-    const imageUrls = await page.evaluate(() => {
-      const urls = [];
-      const images = document.querySelectorAll('img');
-      images.forEach((img) => {
-        if (img.src) {
-          urls.push(img.src);
-        }
-      });
-      return urls;
-    });
-
-    await browser.close();
-
-    res.json({ content: html, imageUrls: imageUrls });
   } catch (error) {
-    console.error("Error during proxying the request:", error);
-    res.status(500).json({ error: `リクエスト中にエラーが発生しました。詳細: ${error.message}` });
+    console.error('Error fetching the URL:', error);
+    res.status(500).json({ error: 'Failed to fetch the requested URL' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
